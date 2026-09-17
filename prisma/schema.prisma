@@ -1,0 +1,94 @@
+// Prisma schema for the digital-logic-course site.
+//
+// Dev database is SQLite (see .env: DATABASE_URL). To move to hosted Postgres
+// (e.g. Supabase) later: change `provider` below to "postgresql" and point
+// DATABASE_URL at the Postgres connection string, then run
+// `prisma migrate dev` again. Application code does not need to change.
+//
+// NOTE: Prisma's native `enum` type is not supported on the sqlite connector,
+// so fields that are conceptually enums (User.role, AuthIdentity.provider)
+// are modeled as `String` here and validated against a TS union type in
+// src/lib/server/auth/types.ts. This keeps the schema identical on Postgres,
+// so switching providers later doesn't force a schema rewrite.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  displayName   String
+  email         String?  @unique
+  emailVerified Boolean  @default(false)
+  role          String   @default("learner")
+  createdAt     DateTime @default(now())
+
+  authIdentities AuthIdentity[]
+  progress       Progress[]
+
+  @@map("users")
+}
+
+model AuthIdentity {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  createdAt      DateTime @default(now())
+  lastLoginAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("auth_identities")
+}
+
+// Server-issued anonymous identity (Feature 1c). The id is what gets stored
+// in the httpOnly guest-session cookie; it is never generated client-side.
+model GuestSession {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  consumedAt DateTime?
+
+  progress Progress[]
+
+  @@map("guest_sessions")
+}
+
+model Unit {
+  id    String @id
+  order Int    @unique
+  title String
+
+  progress Progress[]
+
+  @@map("units")
+}
+
+// Exactly one of userId / guestSessionId is set on any row; enforced in
+// application code (src/lib/server/progress.ts), not by the DB, since
+// SQLite/Prisma don't support a portable CHECK constraint for this.
+model Progress {
+  id               String   @id @default(cuid())
+  userId           String?
+  guestSessionId   String?
+  unitId           String
+  // JSON-encoded array of completed exercise slugs, e.g. ["intro","quiz"].
+  lessonsCompleted String   @default("[]")
+  // JSON-encoded map of quizId -> best score, e.g. {"quiz-1": 0.8}.
+  quizScores       String   @default("{}")
+  updatedAt        DateTime @updatedAt
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestSession GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  unit         Unit          @relation(fields: [unitId], references: [id])
+
+  @@unique([userId, unitId])
+  @@unique([guestSessionId, unitId])
+  @@map("progress")
+}
