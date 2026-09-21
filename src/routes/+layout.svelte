@@ -73,6 +73,7 @@
 	<header>
 		<a class="brand" href="/">Digital Logic</a>
 		<nav>
+			<a href="/circuits/new">Circuit builder</a>
 			<button
 				type="button"
 				class="theme-toggle"

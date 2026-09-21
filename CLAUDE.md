@@ -20,6 +20,7 @@ Each unit builds on the previous one, so content, quizzes, and progress tracking
    - **1c. Anonymous guest sessions (server-side).** A learner does not need an account to take the course. On first visit, the server issues a session id via an httpOnly, secure cookie (not readable/writable by page JS) and creates a matching row in `guest_sessions`. That id is the guest's durable identity, and `progress` rows are keyed to it exactly the way they're keyed to `user_id` for signed-in learners. `localStorage` (Feature 1) stays the fast local cache in both cases; the guest-session cookie is what makes a guest's progress durable server-side without requiring login.
 2. **Admin-managed quizzes.** An admin can add and edit quizzes through the site, without code changes.
 3. **Sign-in and account migration.** Google Sign-In is the only way to create or log into an account (see Authentication below). A learner can take the whole course anonymously first and sign in with Google later; at that point their guest progress is migrated onto the new account rather than lost. See "Anonymous → account migration" under Architecture Notes.
+4. **Circuit builder.** A drag-and-drop logic-gate editor (AND/OR/NOT gates, wires, input toggles, an output light) built as a reusable component (`CircuitCanvas.svelte`), not tied to one unit — first used as a freeform sandbox at `/circuits/new`, meant to be reused later for Unit 6 (Hello World), 7 (adders), and 8 (multiplexers) once those have content. Saving/sharing is signed-in-only (unlike progress, there's no guest-session path for circuits): a saved circuit gets a shareable read-only URL, and anyone signed in can fork it (copy it into their own account and keep editing) via `?/fork`. See "Circuit builder" under Architecture Notes.
 
 ## Proposed Course Structure (draft)
 
@@ -84,6 +85,13 @@ Sources:
 - After a successful migration, invalidate the guest session (clear the cookie / mark the `guest_sessions` row consumed) so it can't be replayed or reused.
 - If Google sign-in fails partway through, the guest session and its progress must remain intact and usable — migration should be transactional, not destructive-then-create.
 
+### Circuit builder (Feature 4)
+- `CircuitCanvas.svelte` (`src/lib/components/`) is the whole interactive editor — an SVG canvas plus a palette of AND/OR/NOT/Input/Output parts — built with custom pointer-event dragging, not the HTML5 drag-and-drop API (which doesn't give live coordinates while dragging, which wires need) and not a DnD library (none in the repo fit free-canvas positioning + wire-dragging). It takes a `$bindable` `graph` prop (a `CircuitGraph` — see `src/lib/circuits/types.ts`) and a `readOnly` prop, so the same component serves the editable and shared-view cases.
+- Circuit evaluation (`src/lib/circuits/evaluate.ts`) is pure and framework-free: topologically evaluates the gate graph, memoizing resolved node values, and detects feedback loops (a gate whose output feeds back into its own input, directly or indirectly) without hanging, surfacing them as a `cycleNodeIds` set the UI warns on. This editor targets combinational circuits only (Units 5–8); loops aren't meaningful until sequential logic (Unit 9) exists, so a loop is treated as a user error to warn about, not something to resolve.
+- Ownership is signed-in-only — unlike `Progress`, there's no guest-session branch for `Circuit`. A guest can still open `/circuits/new` and build freely (client-only state); clicking Save without being signed in is rejected server-side (`fail(401, ...)` in the `create` action) and the UI shows a sign-in prompt instead of the save form. Unsaved sandbox work is **not** preserved across a login redirect in v1 — acceptable for now since real Google OAuth isn't wired up yet either (see Authentication); worth revisiting once it is.
+- Sharing: every circuit has a stable read-only URL at `/circuits/[id]`. The owner sees an editable canvas with Save/Delete; anyone else sees the same canvas in `readOnly` mode with a "Copy & edit this circuit" (fork) action, gated on being signed in. Forking (`forkCircuit` in `src/lib/server/circuits.ts`) copies the source's graph into a new row owned by the forker and records `forkedFromId` — the source is untouched.
+- Not built yet: spec-matching/auto-graded circuit exercises (e.g. "wire a circuit matching this truth table"). Unit 5+ content embedding this component for a graded exercise is a separate, larger piece of work (a grading engine) — out of scope for the editor itself.
+
 ### Quizzes
 - Store quizzes as data in the database, not hardcoded in pages.
 - Each quiz belongs to a unit and contains questions such as multiple choice, truth-table fill-in, or circuit-building answers (learner wires gates to match a spec).
@@ -99,6 +107,7 @@ Sources:
 - `quizzes`: id, unit_id, title, version
 - `questions`: id, quiz_id, type, prompt, options, answer
 - `progress`: id, user_id (nullable), guest_session_id (nullable — exactly one of the two is set), unit_id, lessons_completed, quiz_scores, updated_at
+- `circuits`: id, owner_id (always set — signed-in only, no guest path), title, graph (JSON-encoded nodes/wires), forked_from_id (nullable, self-relation), created_at, updated_at
 
 **As actually implemented (`prisma/schema.prisma`)**, with the deviations from the sketch above:
 - `users`/`auth_identities`/`guest_sessions`/`units` match the sketch (see `role`/`provider` enum note under Tech Stack).
@@ -106,6 +115,7 @@ Sources:
 - `units.content` doesn't exist as a DB column. Course content (lessons, fill-in exercises, quiz questions) lives in code under `src/lib/content/` instead, per the Conventions section below ("keep course content separate from UI code") — only `id`/`order`/`title` are in the DB, seeded from that content module by `prisma/seed.ts`.
 - `quizzes` and `questions` tables don't exist yet — out of scope until Feature 2 (admin-managed quizzes) is built. The Unit 1 quiz is in-code content, scored via `progress.quiz_scores`.
 - No `sessions` table — see the Authentication section's note on signed-cookie sessions.
+- `circuits` matches the sketch as built. `graph` is a JSON-encoded `CircuitGraph` (`src/lib/circuits/types.ts`), the same JSON-in-`String` approach as `progress.lessons_completed`/`quiz_scores`, parsed/serialized in `src/lib/server/circuits.ts`.
 
 ## Tech Stack
 
@@ -132,7 +142,8 @@ pnpm test             # runs against a separate throwaway prisma/test.db, see vi
 Built so far: the login system (Feature 1c + 3, Google stubbed) and Unit 1 (truth tables), with automated tests. Specifically:
 - Server-side guest sessions, `authenticate()`, anonymous → account migration, and progress-based "resume at the right exercise" routing — see `src/lib/server/`.
 - Unit 1 content (`src/lib/content/unit1.ts`): 4 exercises (a reading lesson, two fill-in-the-truth-table exercises for AND/OR, and a multiple-choice check) rendered at `/units/truth-tables/[exercise]`.
-- Tests: `src/lib/server/**/*.test.ts` (`pnpm test`), covering session-token signing, the merge/resume progress logic, `authenticate()`'s DB lookup-vs-create behavior, and guest→user migration.
+- The circuit builder (Feature 4): `CircuitCanvas.svelte`, pure evaluation logic (`src/lib/circuits/`), persistence/sharing/forking (`src/lib/server/circuits.ts`), and routes at `/circuits`, `/circuits/new`, `/circuits/[id]` — see "Circuit builder" under Architecture Notes. Not yet wired into any unit's exercise content (development jumped ahead to build the editor itself first, at the user's request; Units 2–8 content is still unbuilt — see below).
+- Tests: `src/lib/server/**/*.test.ts` and `src/lib/circuits/**/*.test.ts` (`pnpm test`), covering session-token signing, the merge/resume progress logic, `authenticate()`'s DB lookup-vs-create behavior, guest→user migration, circuit persistence/forking, and gate-evaluation truth tables (including loop detection).
 
 Not yet built (do before relying on these):
 - **`localStorage` client-side progress cache** (Feature 1/1a). Progress is currently server-only (DB via guest session or user). The fast local cache + sync-on-completion + login-time merge described under "Progress tracking" below is not implemented — only the server side of that picture exists.

@@ -29,6 +29,7 @@ model User {
 
   authIdentities AuthIdentity[]
   progress       Progress[]
+  circuits       Circuit[]
 
   @@map("users")
 }
@@ -91,4 +92,28 @@ model Progress {
   @@unique([userId, unitId])
   @@unique([guestSessionId, unitId])
   @@map("progress")
+}
+
+// A saved logic-gate circuit built in the drag-and-drop editor (gates,
+// wires, input toggles, an output). Only signed-in users can own/save one —
+// unlike Progress there's no guestSessionId branch here (see CLAUDE.md).
+// Anyone with the link can view it read-only; forking copies it into the
+// forker's own account.
+model Circuit {
+  id           String   @id @default(cuid())
+  ownerId      String
+  title        String
+  // JSON-encoded CircuitGraph (nodes + wires) — see src/lib/circuits/types.ts.
+  // Same JSON-in-String approach as Progress.lessonsCompleted/quizScores,
+  // for the same reason (schema.prisma header note on sqlite + Json).
+  graph        String   @default("{\"nodes\":[],\"wires\":[]}")
+  forkedFromId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  forkedFrom Circuit?  @relation("CircuitForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
+  forks      Circuit[] @relation("CircuitForks")
+
+  @@map("circuits")
 }
