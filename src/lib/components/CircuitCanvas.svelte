@@ -109,7 +109,7 @@
 	// the drag ghost that follows the pointer while placing one.
 	function paletteIconSize(kind: PaletteKind): { w: number; h: number } {
 		if (kind === 'input') return { w: 30, h: 16 };
-		if (kind === 'output') return { w: 12, h: 12 };
+		if (kind === 'output') return { w: 16, h: 8 };
 		if (kind === 'OR') return { w: 32, h: 26 };
 		return { w: 32, h: 22 };
 	}
@@ -314,7 +314,7 @@
 		<rect x="1.5" y="1.5" width={w - 3} height={h - 3} rx={(h - 3) / 2} class="palette-icon-shape" />
 		<circle cx={(h - 3) / 2 + 1.5} cy={h / 2} r={(h - 3) / 2 - 2.5} class="palette-icon-shape" />
 	{:else}
-		<circle cx={w / 2} cy={h / 2} r={w / 2 - 3} class="palette-icon-shape" />
+		<circle cx={w / 2} cy={h / 2} r={w / 4} class="palette-icon-shape" />
 	{/if}
 {/snippet}
 

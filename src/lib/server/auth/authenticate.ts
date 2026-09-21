@@ -1,6 +1,10 @@
 import type { Prisma, User } from '@prisma/client';
 import { prisma } from '../db';
-import { verifyGoogleCredential, type GoogleStubCredential } from './providers/google';
+import {
+	verifyGoogleIdToken,
+	verifyGoogleStubCredential,
+	type GoogleStubCredential
+} from './providers/google';
 import type { AuthProvider, VerifiedIdentity } from './types';
 
 export interface AuthResult {
@@ -8,20 +12,26 @@ export interface AuthResult {
 	isNewUser: boolean;
 }
 
-// Single entry point for every sign-in flow (CLAUDE.md: "keep auth logic
-// behind one interface"). Adding a second provider means adding a case
-// here and a verify* function under ./providers — nothing else in the app
-// touches provider-specific logic.
+// A real Google credential is just the signed ID token string; the stub
+// shape is dev-only (see providers/google.ts). Keeping both under one
+// GoogleCredential type is what lets authenticate() stay the single entry
+// point for every sign-in flow (CLAUDE.md: "keep auth logic behind one
+// interface") even though the two flows verify differently. Adding a
+// second provider means adding a case here and a verify* function under
+// ./providers — nothing else in the app touches provider-specific logic.
+export type GoogleCredential = { idToken: string } | GoogleStubCredential;
+
 export async function authenticate(
 	provider: AuthProvider,
-	credentials: GoogleStubCredential
+	credentials: GoogleCredential
 ): Promise<AuthResult> {
+	if (provider !== 'google') {
+		throw new Error(`Unsupported auth provider: ${provider}`);
+	}
 	const identity: VerifiedIdentity =
-		provider === 'google'
-			? verifyGoogleCredential(credentials)
-			: (() => {
-					throw new Error(`Unsupported auth provider: ${provider}`);
-				})();
+		'idToken' in credentials
+			? await verifyGoogleIdToken(credentials.idToken)
+			: verifyGoogleStubCredential(credentials);
 
 	return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
 		const existingIdentity = await tx.authIdentity.findUnique({

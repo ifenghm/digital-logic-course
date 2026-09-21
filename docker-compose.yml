@@ -1,0 +1,16 @@
+# Local, throwaway Postgres for the automated test suite (see
+# vitest-setup/global-setup.ts and .env.test.example). Dev/prod still use
+# hosted Postgres (Supabase) — this container exists only so `pnpm test`
+# doesn't need network access to, or a real credential for, that project.
+services:
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - '5433:5432'
+    # No named volume: data is meant to be wiped on every recreate.
+    tmpfs:
+      - /var/lib/postgresql/data

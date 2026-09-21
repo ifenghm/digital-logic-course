@@ -111,7 +111,7 @@ Sources:
 
 **As actually implemented (`prisma/schema.prisma`)**, with the deviations from the sketch above:
 - `users`/`auth_identities`/`guest_sessions`/`units` match the sketch (see `role`/`provider` enum note under Tech Stack).
-- `progress.lessons_completed` and `progress.quiz_scores` are JSON-encoded `String` columns (parsed/serialized in `src/lib/server/progress.ts`), not native JSON columns — SQLite's Prisma connector support for a `Json` field type is inconsistent with Postgres's, and this keeps behavior identical across both.
+- `progress.lessons_completed` and `progress.quiz_scores` are JSON-encoded `String` columns (parsed/serialized in `src/lib/server/progress.ts`), not native JSON columns — a holdover from when this ran on SQLite (whose Prisma connector's `Json` field support is inconsistent with Postgres's); left as JSON-in-`String` since it still works fine and avoids an unrelated schema change.
 - `units.content` doesn't exist as a DB column. Course content (lessons, fill-in exercises, quiz questions) lives in code under `src/lib/content/` instead, per the Conventions section below ("keep course content separate from UI code") — only `id`/`order`/`title` are in the DB, seeded from that content module by `prisma/seed.ts`.
 - `quizzes` and `questions` tables don't exist yet — out of scope until Feature 2 (admin-managed quizzes) is built. The Unit 1 quiz is in-code content, scored via `progress.quiz_scores`.
 - No `sessions` table — see the Authentication section's note on signed-cookie sessions.
@@ -120,26 +120,29 @@ Sources:
 ## Tech Stack
 
 - **Framework:** SvelteKit (TypeScript), chosen over a React-based stack for its built-in `transition:`/`animate:` directives — a better fit for the site's page/exercise transitions than pulling in a separate animation library.
-- **Database/ORM:** Prisma 7 with the SQLite connector for local dev, via a driver adapter (`@prisma/adapter-better-sqlite3` — Prisma 7 requires an explicit driver adapter, there's no more bare connection-string option on `PrismaClient`). Moving to hosted Postgres (e.g. Supabase) later: swap `provider` in `prisma/schema.prisma` to `"postgresql"`, swap the adapter in `src/lib/server/db.ts` to `@prisma/adapter-pg` (or similar), point `DATABASE_URL` at the Postgres connection string, and run `prisma migrate dev` again. No application code changes.
+- **Database/ORM:** Prisma 7 against hosted Postgres (Supabase), via the `@prisma/adapter-pg` driver adapter (Prisma 7 requires an explicit driver adapter, there's no more bare connection-string option on `PrismaClient`). `DATABASE_URL` (in `.env`, git-ignored) is the Supabase connection string — percent-encode special characters in the password (e.g. `@` → `%40`) or it breaks URL parsing.
   - Prisma config lives in `prisma.config.ts` (Prisma 7 moved the CLI/migration connection config out of `schema.prisma`), not the schema file.
-  - Prisma's native `enum` type isn't supported on the sqlite connector, so `User.role` and `AuthIdentity.provider` are `String` columns validated against TS union types in `src/lib/server/auth/types.ts`. This keeps the schema identical when moving to Postgres later.
+  - `User.role` and `AuthIdentity.provider` are `String` columns (not Prisma's native `enum`) validated against TS union types in `src/lib/server/auth/types.ts` — a holdover from when this ran on SQLite (whose connector doesn't support `enum`), kept as-is since it still works fine on Postgres.
 - **Runtime:** Node 22 (pinned via `.nvmrc`) — Prisma 7 doesn't support Node 23. Package manager is pnpm (a plain `npm install` currently hits an npm/arborist bug on this dependency graph; pnpm doesn't).
-- **Auth:** Google Sign-In is stubbed (see Authentication below) — no real OAuth client ID/secret configured yet.
+- **Auth:** Real Google Sign-In (ID-token verification via `google-auth-library`, see Authentication below), behind `PUBLIC_GOOGLE_CLIENT_ID`. When that env var isn't set, `/login` falls back to the dev-only stub form (type an email, it signs you in as that "Google account") — useful for a fresh clone with no Google Cloud credentials configured yet.
 
 **Local development:**
 ```
 nvm use              # Node 22, per .nvmrc
 pnpm install          # also runs `prisma generate` (postinstall)
-cp .env.example .env  # then fill in a real SESSION_SECRET for anything beyond local dev
-pnpm db:migrate       # applies prisma/migrations to prisma/dev.db
+cp .env.example .env  # then fill in DATABASE_URL (a real Postgres/Supabase connection string),
+                       # SESSION_SECRET, and optionally PUBLIC_GOOGLE_CLIENT_ID
+pnpm db:migrate       # applies prisma/migrations to the Postgres database in DATABASE_URL
 pnpm db:seed          # seeds the units table from src/lib/content
 pnpm dev
-pnpm test             # runs against a separate throwaway prisma/test.db, see vitest-setup/
+pnpm test             # runs against a throwaway LOCAL Postgres container (docker-compose.yml),
+                       # not the Supabase project above — requires Docker running; see
+                       # .env.test.example (copy to .env.test) and vitest-setup/
 ```
 
 ## Current Implementation Status
 
-Built so far: the login system (Feature 1c + 3, Google stubbed) and Unit 1 (truth tables), with automated tests. Specifically:
+Built so far: the login system (Feature 1c + 3, with real Google Sign-In) and Unit 1 (truth tables), with automated tests. Specifically:
 - Server-side guest sessions, `authenticate()`, anonymous → account migration, and progress-based "resume at the right exercise" routing — see `src/lib/server/`.
 - Unit 1 content (`src/lib/content/unit1.ts`): 4 exercises (a reading lesson, two fill-in-the-truth-table exercises for AND/OR, and a multiple-choice check) rendered at `/units/truth-tables/[exercise]`.
 - The circuit builder (Feature 4): `CircuitCanvas.svelte`, pure evaluation logic (`src/lib/circuits/`), persistence/sharing/forking (`src/lib/server/circuits.ts`), and routes at `/circuits`, `/circuits/new`, `/circuits/[id]` — see "Circuit builder" under Architecture Notes. Not yet wired into any unit's exercise content (development jumped ahead to build the editor itself first, at the user's request; Units 2–8 content is still unbuilt — see below).
@@ -147,7 +150,6 @@ Built so far: the login system (Feature 1c + 3, Google stubbed) and Unit 1 (trut
 
 Not yet built (do before relying on these):
 - **`localStorage` client-side progress cache** (Feature 1/1a). Progress is currently server-only (DB via guest session or user). The fast local cache + sync-on-completion + login-time merge described under "Progress tracking" below is not implemented — only the server side of that picture exists.
-- **Real Google OAuth.** `src/lib/server/auth/providers/google.ts` is a stub driven by a dev-only form at `/login` (type an email, it signs you in as that "Google account"). Swapping in real ID-token verification only touches that one file.
 - **Admin-managed quizzes** (Feature 2). The Unit 1 quiz exercise is in-code content like the rest of the unit, not DB-editable — the `quizzes`/`questions` tables from the Data model sketch below don't exist yet.
 - Units 2–9 content, a `sessions` table (see Authentication below for why signed-in sessions don't use one yet), unlock-order enforcement between units (still an open question).
 

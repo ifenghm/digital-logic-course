@@ -1,22 +1,19 @@
 // Prisma schema for the digital-logic-course site.
 //
-// Dev database is SQLite (see .env: DATABASE_URL). To move to hosted Postgres
-// (e.g. Supabase) later: change `provider` below to "postgresql" and point
-// DATABASE_URL at the Postgres connection string, then run
-// `prisma migrate dev` again. Application code does not need to change.
+// Database is hosted Postgres (Supabase) — see .env: DATABASE_URL.
 //
-// NOTE: Prisma's native `enum` type is not supported on the sqlite connector,
-// so fields that are conceptually enums (User.role, AuthIdentity.provider)
+// NOTE: fields that are conceptually enums (User.role, AuthIdentity.provider)
 // are modeled as `String` here and validated against a TS union type in
-// src/lib/server/auth/types.ts. This keeps the schema identical on Postgres,
-// so switching providers later doesn't force a schema rewrite.
+// src/lib/server/auth/types.ts, a holdover from when this ran on sqlite
+// (whose Prisma connector doesn't support native `enum`). Left as-is since
+// it still works fine on Postgres and avoids an unrelated schema change.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
