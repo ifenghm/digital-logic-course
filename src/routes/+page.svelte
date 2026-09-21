@@ -2,12 +2,6 @@
 	import { UNIT1_ID, UNIT1_TITLE } from '$lib/content/unit1';
 </script>
 
-<h1>Learn digital logic from the ground up</h1>
-<p>
-	Start with truth tables and work your way up to circuits that add numbers, choose between
-	inputs, and remember state across clock cycles — no programming language required.
-</p>
-
 <a class="cta" href="/units/{UNIT1_ID}">Start Unit 1: {UNIT1_TITLE}</a>
 
 <style>

@@ -15,7 +15,8 @@
 	];
 </script>
 
-<p class="breadcrumb"><a href="/units/{data.unit.id}">{data.unit.title}</a></p>
+<p class="breadcrumb">{data.unit.title}</p>
+<p class="back-link"><a href="/">&larr; Back to course</a></p>
 <h1>
 	{data.exercise.title}
 	{#if data.isCompleted}
@@ -116,20 +117,26 @@
 	{:else}
 		<span></span>
 	{/if}
-	{#if (data.exercise.type === 'quiz' && quizResult) || data.isCompleted}
-		{#if data.nextSlug}
-			<a href="/units/{data.unit.id}/{data.nextSlug}" out:fly={{ x: 24, duration: 300 }}
-				>Next &rarr;</a
-			>
-		{:else}
-			<a href="/units/{data.unit.id}" out:fly={{ x: 24, duration: 300 }}>Back to unit</a>
-		{/if}
+	{#if ((data.exercise.type === 'quiz' && quizResult) || data.isCompleted) && data.nextSlug}
+		<a href="/units/{data.unit.id}/{data.nextSlug}" out:fly={{ x: 24, duration: 300 }}
+			>Next &rarr;</a
+		>
 	{/if}
 </nav>
 
 <style>
 	.breadcrumb {
 		margin-bottom: 0;
+		font-size: 2rem;
+		font-weight: 600;
+	}
+
+	.back-link {
+		margin-top: 0.25rem;
+	}
+
+	.back-link a {
+		font-size: 0.875rem;
 	}
 
 	.badge {
@@ -212,8 +219,4 @@
 		margin-top: 2rem;
 	}
 
-	.exercise-nav a {
-		color: var(--accent);
-		transition: color 550ms ease;
-	}
 </style>

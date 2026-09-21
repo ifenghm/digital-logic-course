@@ -140,6 +140,8 @@
 		--border-strong: #cccccc;
 		--accent: #1a5fb4;
 		--accent-hover: #154a8f;
+		--link: #c2410c;
+		--link-visited: #4b5563;
 		--success: #1a7a3d;
 		--error: #b3261e;
 		--error-bg: #fdecea;
@@ -158,6 +160,8 @@
 		--border-strong: #45484f;
 		--accent: #6fa8f5;
 		--accent-hover: #8fbdf7;
+		--link: #fb923c;
+		--link-visited: #9ca3af;
 		--success: #5fd489;
 		--error: #ff8a80;
 		--error-bg: #3a2223;
@@ -209,9 +213,20 @@
 	}
 
 	.brand {
+		font-size: 3rem;
 		font-weight: 700;
 		text-decoration: none;
 		color: var(--text);
+		transition: color 550ms ease;
+	}
+
+	:global(a:link:not(.cta, .brand)) {
+		color: var(--link);
+		transition: color 550ms ease;
+	}
+
+	:global(a:visited:not(.cta, .brand)) {
+		color: var(--link-visited);
 		transition: color 550ms ease;
 	}
 
@@ -292,7 +307,7 @@
 		border: none;
 		padding: 0;
 		font: inherit;
-		color: var(--accent);
+		color: var(--link);
 		cursor: pointer;
 		text-decoration: underline;
 		transition: color 550ms ease;
