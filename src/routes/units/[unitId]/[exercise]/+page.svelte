@@ -1,17 +1,26 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { fly } from 'svelte/transition';
+	import ChevronSelect from '$lib/components/ChevronSelect.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const fillInResult = $derived(form && 'correct' in form ? form : null);
 	const quizResult = $derived(form && 'score' in form ? form : null);
+
+	const binaryOptions = [
+		{ value: '0', label: '0' },
+		{ value: '1', label: '1' }
+	];
 </script>
 
 <p class="breadcrumb"><a href="/units/{data.unit.id}">{data.unit.title}</a></p>
 <h1>
 	{data.exercise.title}
-	{#if data.isCompleted}<span class="badge">✓ Completed</span>{/if}
+	{#if data.isCompleted}
+		<span class="badge" transition:fly={{ y: -6, duration: 400 }}>✓ Completed</span>
+	{/if}
 </h1>
 
 {#if data.exercise.type === 'lesson'}
@@ -43,11 +52,12 @@
 							<td>{row.inputs[variable]}</td>
 						{/each}
 						<td>
-							<label class="sr-only" for="row-{i}">Output for row {i + 1}</label>
-							<select id="row-{i}" name="row-{i}">
-								<option value="0">0</option>
-								<option value="1">1</option>
-							</select>
+							<ChevronSelect
+								id="row-{i}"
+								name="row-{i}"
+								label="Output for row {i + 1}"
+								options={binaryOptions}
+							/>
 						</td>
 					</tr>
 				{/each}
@@ -56,9 +66,11 @@
 		<button type="submit">Check answers</button>
 		{#if fillInResult}
 			{#if fillInResult.correct}
-				<p class="success" role="status">All correct!</p>
+				<p class="success" role="status" transition:fly={{ y: 8, duration: 400 }}>
+					All correct!
+				</p>
 			{:else}
-				<p class="error" role="alert">
+				<p class="error" role="alert" transition:fly={{ y: 8, duration: 400 }}>
 					{fillInResult.wrongRows?.length} row(s) aren't right yet — highlighted above.
 				</p>
 			{/if}
@@ -77,7 +89,11 @@
 				{/each}
 				{#if quizResult}
 					{@const questionCorrect = quizResult.results?.[qi] ?? false}
-					<p class:success={questionCorrect} class:error={!questionCorrect}>
+					<p
+						class:success={questionCorrect}
+						class:error={!questionCorrect}
+						transition:fly={{ x: 8, duration: 400 }}
+					>
 						{questionCorrect ? 'Correct' : 'Not quite'}
 					</p>
 				{/if}
@@ -85,7 +101,7 @@
 		{/each}
 		<button type="submit">Submit quiz</button>
 		{#if quizResult}
-			<p class="success" role="status">
+			<p class="success" role="status" transition:fly={{ y: 8, duration: 400 }}>
 				Score: {quizResult.correctCount} / {quizResult.total}
 			</p>
 		{/if}
@@ -94,15 +110,19 @@
 
 <nav class="exercise-nav">
 	{#if data.prevSlug}
-		<a href="/units/{data.unit.id}/{data.prevSlug}">&larr; Previous</a>
+		<a href="/units/{data.unit.id}/{data.prevSlug}" out:fly={{ x: -24, duration: 300 }}
+			>&larr; Previous</a
+		>
 	{:else}
 		<span></span>
 	{/if}
 	{#if (data.exercise.type === 'quiz' && quizResult) || data.isCompleted}
 		{#if data.nextSlug}
-			<a href="/units/{data.unit.id}/{data.nextSlug}">Next &rarr;</a>
+			<a href="/units/{data.unit.id}/{data.nextSlug}" out:fly={{ x: 24, duration: 300 }}
+				>Next &rarr;</a
+			>
 		{:else}
-			<a href="/units/{data.unit.id}">Back to unit</a>
+			<a href="/units/{data.unit.id}" out:fly={{ x: 24, duration: 300 }}>Back to unit</a>
 		{/if}
 	{/if}
 </nav>
@@ -115,8 +135,9 @@
 	.badge {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: #1a7a3d;
+		color: var(--success);
 		margin-left: 0.5rem;
+		transition: color 550ms ease;
 	}
 
 	table {
@@ -132,28 +153,24 @@
 
 	th,
 	td {
-		border: 1px solid #ccc;
+		border: 1px solid var(--border-strong);
 		padding: 0.5rem 1rem;
 		text-align: center;
+		transition:
+			border-color 550ms ease,
+			background-color 550ms ease;
 	}
 
 	tr.wrong td {
-		background: #fdecea;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
+		background: var(--error-bg);
 	}
 
 	fieldset {
-		border: 1px solid #ddd;
+		border: 1px solid var(--border);
 		border-radius: 0.375rem;
 		padding: 1rem;
 		margin-bottom: 1rem;
+		transition: border-color 550ms ease;
 	}
 
 	.option {
@@ -165,30 +182,38 @@
 		font: inherit;
 		font-weight: 600;
 		padding: 0.625rem 1rem;
-		background: #1a5fb4;
+		background: var(--accent);
 		color: #fff;
 		border: none;
 		border-radius: 0.375rem;
 		cursor: pointer;
+		transition: background-color 400ms ease;
 	}
 
 	button:hover {
-		background: #154a8f;
+		background: var(--accent-hover);
 	}
 
 	.success {
-		color: #1a7a3d;
+		color: var(--success);
 		font-weight: 600;
+		transition: color 550ms ease;
 	}
 
 	.error {
-		color: #b3261e;
+		color: var(--error);
 		font-weight: 600;
+		transition: color 550ms ease;
 	}
 
 	.exercise-nav {
 		display: flex;
 		justify-content: space-between;
 		margin-top: 2rem;
+	}
+
+	.exercise-nav a {
+		color: var(--accent);
+		transition: color 550ms ease;
 	}
 </style>

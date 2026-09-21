@@ -15,14 +15,15 @@
 		display: inline-block;
 		margin-top: 1rem;
 		padding: 0.75rem 1.5rem;
-		background: #1a5fb4;
+		background: var(--accent);
 		color: #fff;
 		text-decoration: none;
 		border-radius: 0.375rem;
 		font-weight: 600;
+		transition: background-color 400ms ease;
 	}
 
 	.cta:hover {
-		background: #154a8f;
+		background: var(--accent-hover);
 	}
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { fly } from 'svelte/transition';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
@@ -23,18 +24,22 @@
 		<input type="text" name="displayName" autocomplete="name" placeholder="Optional" />
 	</label>
 	{#if form?.error}
-		<p class="error" role="alert">{form.error}</p>
+		<p class="error" role="alert" transition:fly={{ y: 8, duration: 400 }}>{form.error}</p>
 	{/if}
 	<button type="submit">Continue with Google (dev stub)</button>
 </form>
 
 <style>
 	.stub-notice {
-		background: #fff7e0;
-		border: 1px solid #e8d8a0;
+		background: var(--warn-bg);
+		border: 1px solid var(--warn-border);
 		border-radius: 0.375rem;
 		padding: 0.75rem 1rem;
-		color: #6b5900;
+		color: var(--warn-text);
+		transition:
+			background-color 550ms ease,
+			border-color 550ms ease,
+			color 550ms ease;
 	}
 
 	form {
@@ -55,27 +60,35 @@
 	input {
 		font: inherit;
 		padding: 0.5rem 0.625rem;
-		border: 1px solid #ccc;
+		border: 1px solid var(--border-strong);
 		border-radius: 0.375rem;
+		background: var(--surface);
+		color: var(--text);
+		transition:
+			border-color 550ms ease,
+			background-color 550ms ease,
+			color 550ms ease;
 	}
 
 	button {
 		font: inherit;
 		font-weight: 600;
 		padding: 0.625rem 1rem;
-		background: #1a5fb4;
+		background: var(--accent);
 		color: #fff;
 		border: none;
 		border-radius: 0.375rem;
 		cursor: pointer;
+		transition: background-color 400ms ease;
 	}
 
 	button:hover {
-		background: #154a8f;
+		background: var(--accent-hover);
 	}
 
 	.error {
-		color: #b3261e;
+		color: var(--error);
 		margin: 0;
+		transition: color 550ms ease;
 	}
 </style>
