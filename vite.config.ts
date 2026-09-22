@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
@@ -10,9 +10,10 @@ export default defineConfig({
 				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
+			// Hosted on Vercel (free/Hobby tier) — see DEPLOYMENT.md. Was
+			// adapter-auto during development; pinned to adapter-vercel
+			// directly once the platform was decided, per SvelteKit's own
+			// recommendation (skips adapter-auto's install-on-first-build step).
 			adapter: adapter()
 		})
 	],

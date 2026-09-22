@@ -125,6 +125,7 @@ Sources:
   - `User.role` and `AuthIdentity.provider` are `String` columns (not Prisma's native `enum`) validated against TS union types in `src/lib/server/auth/types.ts` — a holdover from when this ran on SQLite (whose connector doesn't support `enum`), kept as-is since it still works fine on Postgres.
 - **Runtime:** Node 22 (pinned via `.nvmrc`) — Prisma 7 doesn't support Node 23. Package manager is pnpm (a plain `npm install` currently hits an npm/arborist bug on this dependency graph; pnpm doesn't).
 - **Auth:** Real Google Sign-In (ID-token verification via `google-auth-library`, see Authentication below), behind `PUBLIC_GOOGLE_CLIENT_ID`. When that env var isn't set, `/login` falls back to the dev-only stub form (type an email, it signs you in as that "Google account") — useful for a fresh clone with no Google Cloud credentials configured yet.
+- **Hosting:** Vercel (free Hobby tier), via `@sveltejs/adapter-vercel` — see `DEPLOYMENT.md` for setup, what runs on every deploy (`prisma migrate deploy` + re-seeding `units`, via `vercel.json`'s build command), and how the free Supabase database is kept from auto-pausing (a daily cron hitting `/api/health`).
 
 **Local development:**
 ```
@@ -147,6 +148,7 @@ Built so far: the login system (Feature 1c + 3, with real Google Sign-In) and Un
 - Unit 1 content (`src/lib/content/unit1.ts`): 4 exercises (a reading lesson, two fill-in-the-truth-table exercises for AND/OR, and a multiple-choice check) rendered at `/units/truth-tables/[exercise]`.
 - The circuit builder (Feature 4): `CircuitCanvas.svelte`, pure evaluation logic (`src/lib/circuits/`), persistence/sharing/forking (`src/lib/server/circuits.ts`), and routes at `/circuits`, `/circuits/new`, `/circuits/[id]` — see "Circuit builder" under Architecture Notes. Not yet wired into any unit's exercise content (development jumped ahead to build the editor itself first, at the user's request; Units 2–8 content is still unbuilt — see below).
 - Tests: `src/lib/server/**/*.test.ts` and `src/lib/circuits/**/*.test.ts` (`pnpm test`), covering session-token signing, the merge/resume progress logic, `authenticate()`'s DB lookup-vs-create behavior, guest→user migration, circuit persistence/forking, and gate-evaluation truth tables (including loop detection).
+- Deployment: live on Vercel's free tier, auto-deploying from `main` — see `DEPLOYMENT.md`.
 
 Not yet built (do before relying on these):
 - **`localStorage` client-side progress cache** (Feature 1/1a). Progress is currently server-only (DB via guest session or user). The fast local cache + sync-on-completion + login-time merge described under "Progress tracking" below is not implemented — only the server side of that picture exists.
